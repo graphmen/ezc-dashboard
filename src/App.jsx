@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { Menu, X } from 'lucide-react';
 import Sidebar from './components/Sidebar';
 import MapArea from './components/MapArea';
 import GroupManagerModal from './components/GroupManagerModal';
@@ -8,6 +9,7 @@ import './App.css';
 
 export default function App() {
   const [activeView, setActiveView] = useState('pastor'); // 'pastor' or 'member'
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const [allChurches, setAllChurches] = useState([]);
   const [allMembers, setAllMembers] = useState([]);
@@ -100,10 +102,13 @@ export default function App() {
   return (
     <div className="app">
       <Sidebar
+        isOpen={isSidebarOpen}
+        onCloseSidebar={() => setIsSidebarOpen(false)}
         activeView={activeView}
         onViewChange={(view) => {
           setActiveView(view);
           setFilters({ district: 'all', search: '', minMembers: 0 }); // reset filters on switch
+          setIsSidebarOpen(false); // Close sidebar on view switch for mobile UX
         }}
         items={activeView === 'pastor' ? filteredChurches : filteredMembers}
         allCount={activeView === 'pastor' ? allChurches.length : allMembers.length}
@@ -112,15 +117,46 @@ export default function App() {
         layers={layers}
         onLayerToggle={handleLayerToggle}
         onOpenModal={() => setShowModal(true)}
-        showCharts={showCharts}
-        onToggleCharts={() => setShowCharts((v) => !v)}
+        onToggleCharts={() => {
+          setShowCharts((v) => !v);
+          if (!showCharts) setIsSidebarOpen(false); // Close sidebar if opening charts on mobile
+        }}
         loading={loading}
         error={error}
         lastSynced={lastSynced}
         onRefresh={loadData}
       />
 
+      <aside className={`chart-sidebar ${showCharts ? 'open' : ''}`}>
+        <div className="chart-sidebar-header">
+          <span>Analytics & Demographics</span>
+          <button className="icon-btn close-chart-btn" onClick={() => setShowCharts(false)}>
+            <X size={18} />
+          </button>
+        </div>
+        <div className="chart-sidebar-body">
+          <ChartPanel
+            activeView={activeView}
+            churches={filteredChurches}
+            members={filteredMembers}
+            churchNeeds={churchNeeds}
+            memberNeeds={memberNeeds}
+            memberDemos={memberDemos}
+          />
+        </div>
+      </aside>
+
       <main className="map-wrapper">
+        <button 
+          className="mobile-toggle-btn"
+          onClick={() => {
+            setIsSidebarOpen(!isSidebarOpen);
+            if (!isSidebarOpen) setShowCharts(false); // Hide charts when opening sidebar on mobile
+          }}
+          title={isSidebarOpen ? "Close Menu" : "Open Data Menu"}
+        >
+          {isSidebarOpen ? <X size={24} /> : <Menu size={24} />}
+        </button>
         {loading && (
           <div className="loading-overlay">
             <div className="loader" />
@@ -133,25 +169,6 @@ export default function App() {
           layers={layers}
         />
       </main>
-
-      {showCharts && (
-        <aside className="chart-sidebar">
-          <div className="chart-sidebar-header">
-            <span>Analytics & Demographics</span>
-            <button className="icon-btn" onClick={() => setShowCharts(false)}>✕</button>
-          </div>
-          <div className="chart-sidebar-body">
-            <ChartPanel
-              activeView={activeView}
-              churches={filteredChurches}
-              members={filteredMembers}
-              churchNeeds={churchNeeds}
-              memberNeeds={memberNeeds}
-              memberDemos={memberDemos}
-            />
-          </div>
-        </aside>
-      )}
 
       <GroupManagerModal
         isOpen={showModal}

@@ -1,6 +1,8 @@
-import { BarChart2, Filter, Layers, Users, Map, RefreshCw, BarChart, X } from 'lucide-react';
+import { BarChart2, Filter, Layers, Users, RefreshCw, BarChart, X } from 'lucide-react';
+import sdaLogo from '../sda.png';
 
 export default function Sidebar({
+    isOpen, onCloseSidebar,
     activeView, onViewChange,
     items, allCount, filters, onFilterChange,
     layers, onLayerToggle, onOpenModal,
@@ -20,16 +22,19 @@ export default function Sidebar({
     const districts = [...new Set(items.map((i) => i.district))].sort();
 
     return (
-        <aside className="sidebar">
+        <aside className={`sidebar ${isOpen ? 'open' : ''}`}>
             <div className="sidebar-header">
                 <div className="sidebar-logo">
-                    <Map size={22} />
+                    <img src={sdaLogo} alt="SDA Logo" style={{ width: 36, height: 36, objectFit: 'contain' }} />
                     <div>
                         <h1>EZC Dashboard</h1>
                         <p>Evangelism &amp; Mapping Exercise</p>
                     </div>
                 </div>
                 <div className="header-actions">
+                    <button className="icon-btn mobile-close-btn" title="Close Sidebar" onClick={onCloseSidebar}>
+                        <X size={15} />
+                    </button>
                     <button className="icon-btn" title="Refresh data" onClick={onRefresh} disabled={loading}>
                         <RefreshCw size={15} className={loading ? 'spinning' : ''} />
                     </button>

@@ -1,4 +1,4 @@
-import { MapContainer, TileLayer, Circle, CircleMarker, Popup, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Circle, CircleMarker, Popup, useMap, LayersControl } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 
 function MapFitter({ items }) {
@@ -23,10 +23,20 @@ export default function MapArea({ activeView, items, layers }) {
             style={{ width: '100%', height: '100%' }}
             zoomControl={true}
         >
-            <TileLayer
-                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>'
-                url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
-            />
+            <LayersControl position="topright">
+                <LayersControl.BaseLayer checked name="Standard Map">
+                    <TileLayer
+                        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>'
+                        url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+                    />
+                </LayersControl.BaseLayer>
+                <LayersControl.BaseLayer name="Google Hybrid">
+                    <TileLayer
+                        attribution='&copy; Google'
+                        url="https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}"
+                    />
+                </LayersControl.BaseLayer>
+            </LayersControl>
 
             {isPastor && layers.heat &&
                 items.map((c) => (
