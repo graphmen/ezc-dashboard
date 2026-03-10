@@ -27,7 +27,7 @@ export default function Sidebar({
                 <div className="sidebar-logo">
                     <img src={sdaLogo} alt="SDA Logo" style={{ width: 36, height: 36, objectFit: 'contain' }} />
                     <div>
-                        <h1>EZC Dashboard</h1>
+                        <h1>Hagios Small Groups</h1>
                         <p>Evangelism &amp; Mapping Exercise</p>
                     </div>
                 </div>
