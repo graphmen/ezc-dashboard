@@ -27,21 +27,56 @@ function memberCategory(count) {
 }
 
 /**
- * Derive a district label based on GPS location (best-effort for Zimbabwe)
+ * Fetch the local district-to-church mapping CSV.
  */
-function deriveDistrict(lat, lng) {
-    if (lat > -18.5 && lng < 31.3) return 'Harare';
-    if (lat < -18.5 && lat > -19.5 && lng < 30.5) return 'Gweru';
-    if (lat < -19.5 && lng < 30) return 'Bulawayo';
-    if (lng > 32) return 'Mutare / Eastern';
-    if (lat < -19.5 && lng > 30) return 'South / Masvingo';
-    return 'Other';
+export async function fetchDistrictMapping() {
+    try {
+        // Assuming the file is accessible at this path or public URL
+        const response = await fetch('/churches_mapping.csv');
+        if (!response.ok) {
+            // Fallback if the file isn't in public/
+            console.warn('District mapping CSV not found in public/, trying local path...');
+            return {};
+        }
+        const csvText = await response.text();
+        const { data } = Papa.parse(csvText, {
+            header: true,
+            skipEmptyLines: true,
+        });
+
+        const mapping = {};
+        data.forEach(row => {
+            const church = (row['Church'] || '').trim();
+            const district = (row['District Name'] || '').trim();
+            if (church && district) {
+                mapping[church] = district;
+            }
+        });
+        return mapping;
+    } catch (err) {
+        console.error('Failed to fetch district mapping:', err);
+        return {};
+    }
+}
+
+/**
+ * Assign a district based on the church name mapping.
+ */
+function getDistrict(churchName, mapping) {
+    if (!churchName || !mapping) return 'Other';
+    const name = churchName.trim();
+    // Try exact match first
+    if (mapping[name]) return mapping[name];
+    // Try fuzzy match (case insensitive, trimmed)
+    const lowerName = name.toLowerCase();
+    const match = Object.keys(mapping).find(k => k.toLowerCase() === lowerName);
+    return match ? mapping[match] : 'Other';
 }
 
 /**
  * Fetch and parse the Google Sheet CSV into our internal data model for Churches/Pastors.
  */
-export async function fetchChurches() {
+export async function fetchChurches(districtMapping = {}) {
     try {
         const response = await fetch(SHEET_CSV_URL);
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -91,8 +126,8 @@ export async function fetchChurches() {
                     lng,
                     accuracy,
                     timestamp: row['Timestamp'] ? new Date(row['Timestamp']) : null,
-                    // Assign a district based on lat/lng cluster (best-effort)
-                    district: deriveDistrict(lat, lng),
+                    // Assign a district based on the lookup mapping
+                    district: getDistrict(churchName, districtMapping),
                 };
             })
             .filter(Boolean);
@@ -107,7 +142,7 @@ export async function fetchChurches() {
 /**
  * Fetch and parse the Google Sheet CSV into our internal data model for Households/Members.
  */
-export async function fetchMembers() {
+export async function fetchMembers(districtMapping = {}) {
     try {
         const response = await fetch(SHEET_MEMBERS_CSV_URL);
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -134,6 +169,7 @@ export async function fetchMembers() {
                 const lng = parseFloat(getVal('Lng') || getVal('Location Y'));
                 const totalMembers = parseInt(getVal('Total Members'), 10) || 0;
                 const familyLeader = (getVal('Family Leader') || '').trim();
+                const churchName = (getVal('Church Name') || 'Unassigned').trim();
 
                 // Skip rows with invalid GPS or zero members/no leader
                 if (!familyLeader || isNaN(lat) || isNaN(lng) || totalMembers === 0) return null;
@@ -143,7 +179,7 @@ export async function fetchMembers() {
 
                 return {
                     id: i + 1,
-                    churchName: (getVal('Church Name') || 'Unassigned').trim(),
+                    churchName,
                     leader: familyLeader,
                     address: getVal('Family Address') || '',
                     totalMembers,
@@ -168,7 +204,7 @@ export async function fetchMembers() {
                     lng,
                     accuracy: parseInt(getVal('Accuracy'), 10) || 99,
                     timestamp: getVal('Timestamp') ? new Date(getVal('Timestamp')) : null,
-                    district: deriveDistrict(lat, lng),
+                    district: getDistrict(churchName, districtMapping),
                 };
             })
             .filter(Boolean);

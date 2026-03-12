@@ -4,7 +4,9 @@ import sdaLogo from '../sda.png';
 export default function Sidebar({
     isOpen, onCloseSidebar,
     activeView, onViewChange,
-    items, allCount, filters, onFilterChange,
+    items, allCount, 
+    districts, churches,
+    filters, onFilterChange,
     layers, onLayerToggle, onOpenModal,
     showCharts, onToggleCharts,
     loading, error, lastSynced, onRefresh,
@@ -18,8 +20,8 @@ export default function Sidebar({
         ? items.reduce((acc, c) => acc + Math.max(1, Math.floor(c.members / 15)), 0)
         : items.length; // 1 household = 1 group element
 
-    const isFiltered = filters.district !== 'all' || filters.search || filters.minMembers > 0;
-    const districts = [...new Set(items.map((i) => i.district))].sort();
+    const isFiltered = filters.district !== 'all' || filters.church !== 'all' || filters.search || filters.minMembers > 0;
+    const currentDistricts = districts || [...new Set(items.map((i) => i.district))].sort();
 
     return (
         <aside className={`sidebar ${isOpen ? 'open' : ''}`}>
@@ -87,7 +89,7 @@ export default function Sidebar({
                             <div className="stat-label">{isPastor ? 'Small Groups' : 'Families'}</div>
                         </div>
                         <div className="stat-box">
-                            <div className="stat-value">{districts.length}</div>
+                            <div className="stat-value">{currentDistricts.length}</div>
                             <div className="stat-label">Districts</div>
                         </div>
                     </div>
@@ -100,6 +102,7 @@ export default function Sidebar({
                         {isFiltered && (
                             <button className="reset-btn" onClick={() => {
                                 onFilterChange('district', 'all');
+                                onFilterChange('church', 'all');
                                 onFilterChange('search', '');
                                 onFilterChange('minMembers', 0);
                             }}>
@@ -107,14 +110,23 @@ export default function Sidebar({
                             </button>
                         )}
                     </div>
-                    <div className="input-group">
-                        <label className="input-label">District</label>
-                        <select className="select-input" value={filters.district} onChange={(e) => onFilterChange('district', e.target.value)}>
-                            <option value="all">All Districts</option>
-                            {districts.map((d) => <option key={d} value={d}>{d}</option>)}
-                        </select>
+                    <div className="filter-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                        <div className="input-group">
+                            <label className="input-label">District</label>
+                            <select className="select-input" value={filters.district} onChange={(e) => onFilterChange('district', e.target.value)}>
+                                <option value="all">All</option>
+                                {districts && districts.map((d) => <option key={d} value={d}>{d}</option>)}
+                            </select>
+                        </div>
+                        <div className="input-group">
+                            <label className="input-label">Church</label>
+                            <select className="select-input" value={filters.church} onChange={(e) => onFilterChange('church', e.target.value)}>
+                                <option value="all">All</option>
+                                {churches && churches.map((c) => <option key={c} value={c}>{c}</option>)}
+                            </select>
+                        </div>
                     </div>
-                    <div className="input-group">
+                    <div className="input-group" style={{ marginTop: '8px' }}>
                         <label className="input-label">{isPastor ? 'Search Church / Leader' : 'Search Household / Church'}</label>
                         <input
                             type="text" className="text-input"

@@ -4,7 +4,7 @@ import Sidebar from './components/Sidebar';
 import MapArea from './components/MapArea';
 import GroupManagerModal from './components/GroupManagerModal';
 import ChartPanel from './components/ChartPanel';
-import { fetchChurches, fetchMembers, aggregateNeeds, aggregateDemographics } from './data/dataService';
+import { fetchChurches, fetchMembers, fetchDistrictMapping, aggregateNeeds, aggregateDemographics } from './data/dataService';
 import './App.css';
 
 export default function App() {
@@ -13,12 +13,13 @@ export default function App() {
 
   const [allChurches, setAllChurches] = useState([]);
   const [allMembers, setAllMembers] = useState([]);
+  const [districtMapping, setDistrictMapping] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [lastSynced, setLastSynced] = useState(null);
 
   // Filters shared between views where applicable
-  const [filters, setFilters] = useState({ district: 'all', search: '', minMembers: 0 });
+  const [filters, setFilters] = useState({ district: 'all', church: 'all', search: '', minMembers: 0 });
   const [layers, setLayers] = useState({ churches: true, heat: true, boundaries: false });
   const [showModal, setShowModal] = useState(false);
   const [showCharts, setShowCharts] = useState(false);
@@ -27,9 +28,12 @@ export default function App() {
     setLoading(true);
     setError(null);
     try {
+      const mapping = await fetchDistrictMapping();
+      setDistrictMapping(mapping);
+
       const [churchRes, memberRes] = await Promise.all([
-        fetchChurches(),
-        fetchMembers()
+        fetchChurches(mapping),
+        fetchMembers(mapping)
       ]);
       setAllChurches(churchRes.churches);
       setAllMembers(memberRes.members);
@@ -52,6 +56,9 @@ export default function App() {
     if (filters.district !== 'all') {
       result = result.filter((c) => c.district === filters.district);
     }
+    if (filters.church !== 'all') {
+      result = result.filter((c) => c.name === filters.church);
+    }
     if (filters.search.trim()) {
       const s = filters.search.toLowerCase();
       result = result.filter(
@@ -73,6 +80,9 @@ export default function App() {
     if (filters.district !== 'all') {
       result = result.filter((m) => m.district === filters.district);
     }
+    if (filters.church !== 'all') {
+      result = result.filter((m) => m.churchName === filters.church);
+    }
     if (filters.search.trim()) {
       const s = filters.search.toLowerCase();
       result = result.filter(
@@ -92,12 +102,44 @@ export default function App() {
   const memberDemos = useMemo(() => aggregateDemographics(filteredMembers), [filteredMembers]);
 
   const handleFilterChange = (key, value) => {
-    setFilters((prev) => ({ ...prev, [key]: value }));
+    setFilters((prev) => {
+      const newFilters = { ...prev, [key]: value };
+      if (key === 'district') {
+        newFilters.church = 'all'; // Reset church when district changes
+      }
+      return newFilters;
+    });
   };
 
   const handleLayerToggle = (layer) => {
     setLayers((prev) => ({ ...prev, [layer]: !prev[layer] }));
   };
+
+  const allDistricts = useMemo(() => {
+    const d = new Set();
+    Object.values(districtMapping).forEach(v => d.add(v));
+    allChurches.forEach(c => d.add(c.district));
+    return [...d].sort();
+  }, [districtMapping, allChurches]);
+
+  const churchesInSelectedDistrict = useMemo(() => {
+    let churches = [];
+    if (filters.district === 'all') {
+        churches = allChurches.map(c => c.name);
+    } else {
+        churches = allChurches
+            .filter(c => c.district === filters.district)
+            .map(c => c.name);
+        
+        // Add churches from mapping that might not be in the results but are in the district
+        Object.entries(districtMapping).forEach(([church, district]) => {
+            if (district === filters.district && !churches.includes(church)) {
+                churches.push(church);
+            }
+        });
+    }
+    return [...new Set(churches)].sort();
+  }, [filters.district, allChurches, districtMapping]);
 
   return (
     <div className="app">
@@ -107,11 +149,13 @@ export default function App() {
         activeView={activeView}
         onViewChange={(view) => {
           setActiveView(view);
-          setFilters({ district: 'all', search: '', minMembers: 0 }); // reset filters on switch
+          setFilters({ district: 'all', church: 'all', search: '', minMembers: 0 }); // reset filters on switch
           setIsSidebarOpen(false); // Close sidebar on view switch for mobile UX
         }}
         items={activeView === 'pastor' ? filteredChurches : filteredMembers}
         allCount={activeView === 'pastor' ? allChurches.length : allMembers.length}
+        districts={allDistricts}
+        churches={churchesInSelectedDistrict}
         filters={filters}
         onFilterChange={handleFilterChange}
         layers={layers}
